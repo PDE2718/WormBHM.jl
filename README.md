@@ -73,7 +73,3 @@ plot(τgrid,G0τ,
 # check that for hard-core bosons, G(0⁺) + G(0⁻) == 1
 @assert ≈(G0τ[1] + G0τ[end], 1, atol=0.05)
 ```
-
-
-
-
