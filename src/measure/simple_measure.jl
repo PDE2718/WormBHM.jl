@@ -25,8 +25,8 @@ function merge(ms::Array{SimpleMeasure{Np}}) where {Np}
     names = ms[1].names
     m_merge = SimpleMeasure{Np}(0.0 .* ms[1].props, names, 0)
     for m ∈ ms
-        m_merge.props .+= m.props
-        m_merge.n_measure += m.n_measur
+        m_merge.props = (m.props .+ m.props)
+        m_merge.n_measure += m.n_measure
     end
     return m_merge
 end
