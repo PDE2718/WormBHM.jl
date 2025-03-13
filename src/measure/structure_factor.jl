@@ -81,4 +81,17 @@ function Cab(S::StructureFactorND{Ndim,Nsub,NSk}, a::Integer, b::Integer) where 
         return inv(N * S.n_measure) * (P \ conj.(S.Sk[_sub_Sk_id(b, a, Nsub)]))
     end
 end
-
+import Base: merge
+function merge(ms::Array{StructureFactorND{Ndim, Nsub, NSk}}) where {Ndim, Nsub, NSk}
+    m_merge = deepcopy(ms[1])
+    for Sk ∈ m_merge.Sk
+        Sk .= 0.0
+    end
+    for m ∈ ms
+        for (Sk_bar, Sk) ∈ zip(m_merge.Sk, m.Sk)
+            Sk_bar .+= Sk
+        end
+        m_merge.n_measure += m.n_measure
+    end
+    return m_merge
+end

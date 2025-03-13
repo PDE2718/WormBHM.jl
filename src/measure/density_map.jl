@@ -28,3 +28,12 @@ function snapshot!(r::DensityMap{Nw}, x::Wsheet{Nw}, t_scaled::f64) where {Nw}
     r.n_measure += 1
     return nothing
 end
+import Base.merge
+function merge(ms::Array{DensityMap{Nw}}) where {Nw}
+    ψ = similar(ms[1].ψ)
+    ρ = sum(m.ρ for m ∈ ms)
+    n_measure = sum(m.n_measure for m ∈ ms)
+    return DensityMap{Nw}(
+        ψ, ρ, n_measure
+    )
+end

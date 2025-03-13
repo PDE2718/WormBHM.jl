@@ -24,7 +24,6 @@ function SnapShots(x::Wsheet{Nw}, L::Integer) where {Nw}
     return FixedSizeRecorder(Array{StateType, Nw}, L)
 end
 
-
 mutable struct CoarseGrainedRecorder{T}
     l::Vector{Vector{T}}
 end

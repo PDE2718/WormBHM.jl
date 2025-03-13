@@ -15,6 +15,7 @@ end
 include("hamiltionian.jl")
 include("update.jl")
 include("simulation.jl")
+include("extra_tools.jl")
 
 function sayhi()
     println("114515")

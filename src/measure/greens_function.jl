@@ -191,3 +191,32 @@ end
 #     end
 #     return Dmat_n
 # end
+
+import Base.merge
+@generated function merge(ms::Array{GreenFuncBin{IsLattice,FullImaginary,T_Pl,T_G0,T_Gl}}) where {IsLattice,FullImaginary,T_Pl,T_G0,T_Gl}
+    return quote
+        @assert allequal(m -> m.β,ms)
+        β = ms[1].β
+        @assert allequal(m -> m.Cw, ms)
+        Cw = ms[1].Cw
+        @assert allequal(m -> size(m.G0), ms)
+        _Pl == deepcopy(m[1]._Pl)
+        G0 = sum(m.G0 for m ∈ ms)
+        insertion_trial = sum(m.insertion_trial for m ∈ ms)
+        $(
+            if FullImaginary == nothing
+                @assert T_Gl == Nothing
+                quote
+                    Gl = nothing
+                end
+            else
+                quote
+                    Gl = sum(m.Gl for m ∈ ms)
+                end
+            end
+        )
+        return GreenFuncBin{IsLattice,FullImaginary,T_Pl,T_G0,T_Gl}(
+            β, Cw, _Pl, G0, Gl, insertion_trial
+        )
+    end
+end
