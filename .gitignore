@@ -1,0 +1,13 @@
+.DS_Store
+**/.DS_Store
+*DS_Store
+**/.jld2
+**/.vscode*
+.vscode
+.vscode/*
+.draft
+.draft/*
+.backup
+.backup/*
+examples*
+examples/*
