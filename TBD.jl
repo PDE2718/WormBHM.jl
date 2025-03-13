@@ -1,4 +1,0 @@
-# Measurement
-submo
-SimpleMeasurement
-
