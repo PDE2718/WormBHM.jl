@@ -10,6 +10,7 @@ end
 function wl_size(H::HybridKagome)::NTuple{3,Int}
     return (Int(H.Lx), Int(H.Ly), 3)
 end
+
 function get_nbs(H::HybridKagome, i::Integer)::NTuple{4,Int}
     Lx = Int(H.Lx)
     Ly = Int(H.Ly)
