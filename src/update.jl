@@ -2,7 +2,7 @@
         x::Wsheet{Nw},
         H::Ham,
         update_consts::UpdateConsts,
-        cycle_accum_prob::CycleAccumProb,
+        cycle_probs::CycleAccumProb,
         n_cycle::Int,
         G::T_G,
     )::Int where {
@@ -91,7 +91,7 @@
                 end
             )
             dice = rand()
-            if dice < cycle_accum_prob.move_worm         # [MOVE_WORM]
+            if dice < cycle_probs.move_worm         # [MOVE_WORM]
                 # println("   moving...")
                 D = randsign()
                 if D * δ == i8(-1)
@@ -289,7 +289,7 @@
 
                 @goto CYCLE_START🔁
 
-            elseif dice < cycle_accum_prob.insert_kink  # [INSERT_KINK]
+            elseif dice < cycle_probs.insert_kink  # [INSERT_KINK]
                 # println("   inserting...")
                 if loc ≠ _at_free
                     @goto CYCLE_START🔁
@@ -357,7 +357,7 @@
                 end
                 @goto CYCLE_START🔁
 
-            elseif dice < cycle_accum_prob.delete_kink  # [DELETE_KINK]
+            elseif dice < cycle_probs.delete_kink  # [DELETE_KINK]
                 # println("deleting...")
                 if loc ≠ _at_kink
                     @goto CYCLE_START🔁
@@ -415,7 +415,7 @@
                 end
                 @goto CYCLE_START🔁
 
-            else #if dice < cycle_accum_prob.glue_worm≡1 # [GLUE_WORM]
+            else #if dice < cycle_probs.glue_worm≡1 # [GLUE_WORM]
                 if loc == _at_stop && metro(inv(2 * update_consts.Cw * max(head.n_L, head.n_R)))
                     # @assert head.i == tail.i && head.t == nextfloat(tail.t, δ)
                     del_id = min(head_id, head_id - δ)
