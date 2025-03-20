@@ -32,8 +32,8 @@ function site_diff(IsLattice::Val{true}, x::Wsheet{N}, i::Tid, j::Tid) where {N,
     return CartesianIndex(dr..., si, sj)
 end
 function site_diff(IsLattice::Val{false}, x::Wsheet, i::Integer, j::Integer)
-    @assert checkbounds(x.wl, i)
-    @assert checkbounds(x.wl, j)
+    @assert checkbounds(Bool, x.wl, i)
+    @assert checkbounds(Bool, x.wl, j)
     return CartesianIndex(i, j)
 end
 mutable struct GreenFuncBin{IsLattice, FullImaginary,
@@ -170,7 +170,8 @@ function _norm_coeff(G::GreenFuncBin{IsLattice,FullImaginary,T_Pl,T_G0,T_Gl}) wh
         Nsub = size(G.G0)[end]
         inv(4 * G.Cw * G.insertion_trial) * Nsub
     else
-        inv(4 * G.Cw * G.insertion_trial)
+        @assert allequal(size(G.G0))
+        inv(4 * G.Cw * G.insertion_trial) * size(G.G0)[end]
     end
 end
 

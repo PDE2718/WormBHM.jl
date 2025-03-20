@@ -55,7 +55,7 @@ function init_wsheet(β::T_β, H::T_H) where {T_β<:Real,T_H<:BH_Parameters}
 end
 include("models/BH_Square.jl")
 include("models/Kagome.jl")
-# include("models/GenericEBHM.jl")
+include("models/GenericEBHM.jl")
 # include("models/KCM_Kagome.jl")
 include("models/HybridKagome.jl")
 

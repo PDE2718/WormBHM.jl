@@ -1,5 +1,5 @@
 module WormBHM
-using LinearAlgebra, StaticArrays, Random, Statistics, FFTW, LegendrePolynomials, Dates, Accessors
+using LinearAlgebra, StaticArrays, Random, Distributions, Statistics, FFTW, LegendrePolynomials, Dates, Accessors
 using Base.Cartesian.Base:@ntuple, @nexprs, @nextract
 
 include("element.jl")
