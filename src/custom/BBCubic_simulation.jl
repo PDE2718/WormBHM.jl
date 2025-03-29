@@ -28,6 +28,7 @@ end
     Sk::T_StructureFactor=nothing,
     snapshots::T_Snaps=nothing,
     bosonhist::T_BosonHist=nothing,
+    optimal_update_consts=true,
     sweep_size_limit::Tuple{Int,Int}=(1, 1024),
     shuffle_snapshot::f64=0.0,
     ) where {
@@ -62,6 +63,7 @@ end
         T_simu::UInt64 = Nanosecond(time_simu).value
 
         t_limit::UInt64 = time_ns() + T_ther
+
         N_cycle = total_cycle_size = 0
         sweep_size = 10
         while time_ns() < t_limit
@@ -76,6 +78,13 @@ end
         Nverts = sum(length, x.wl) - length(x.wl)
         sweep_size = ceil(Int, Nverts / average_size)
         sweep_size = clamp(sweep_size, sweep_size_limit...)
+
+        if optimal_update_consts
+            @reset update_consts.Eoff = (Nverts/length(x.wl) + 1)/x.β
+            @assert update_consts.Eoff > 0
+            @info "reset update_consts.Eoff to optimal : $(update_consts)"
+        end
+
         # sweep_size = 10
         @assert all(issorted, x.wl)
         @info """Thermalization Statistics
