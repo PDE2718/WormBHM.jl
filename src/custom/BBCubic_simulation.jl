@@ -1,15 +1,82 @@
-function update_bosons!(H::BBCubic, x::Wsheet{4})
-    bosonic_dist = Geometric(1 - exp(-x.β * H.ω))
+using Random
+struct BBDist # P(n) = n^k * exp(-b*n)
+    k::Int
+    b::Float64
+    _bias::Int
+    cdf::Vector{Float64}
+end
+function BBDist(k::Int, b::Float64)
+    @assert k ≥ 0
+    @assert b > 0.0
+    P = 1.0
+    n = 0
+    _bias = 1
+    cdf = Float64[1.0]
+    S = Snew = 1.0
+    while n < 1000000
+        n += 1
+        P = exp(k * log(n) - b * n)
+        Snew += P
+        push!(cdf, Snew)
+        if S / Snew > prevfloat(1.0)
+            break
+        else
+            S = Snew
+        end
+    end
+    cdf ./= cdf[end]
+    @assert issorted(cdf)
+    while cdf[end] > prevfloat(1.0)
+        pop!(cdf)
+    end
+    push!(cdf, 1.0)
+    while cdf[1] < eps(Float64)
+        popfirst!(cdf)
+        _bias += 1
+    end
+    resize!(cdf, length(cdf))
+    return BBDist(k, b, _bias, cdf)
+end
+function (f::BBDist)(rng=Random.default_rng())
+    return searchsortedfirst(f.cdf, rand(rng)) - f._bias
+end
+function rand_boson!(fB::Vector{BBDist}, Nk::Int, βω::Float64)
+    @assert Nk ≥ 0
+    @assert βω > 0.0
+    l0 = length(fB)
+    for k ∈ l0:Nk
+        push!(fB, BBDist(k, βω))
+    end
+    f = fB[Nk+1]
+    @assert f.b == βω
+    return fB[Nk+1]()
+end
+
+# function update_bosons!(H::BBCubic, x::Wsheet{4})
+#     bosonic_dist = Geometric(1 - exp(-x.β * H.ω))
+#     B = H.bosons
+#     for (kb, n0) ∈ enumerate(B)
+#         np = rand(bosonic_dist)
+#         if 0 ≤ np ≤ H.nBmax
+#             i, j = bond_sites(H, kb)
+#             Nkink = count(e -> e.j == j, x[i])
+#             P_acc = (np^Nkink) / (n0^Nkink)
+#             if metro(P_acc)
+#                 B[kb] = np
+#             end
+#         end
+#     end
+#     return nothing
+# end
+function update_bosons!(H::BBCubic, x::Wsheet{4}, fB::Vector{BBDist})
+    βω = x.β * H.ω
     B = H.bosons
     for (kb, n0) ∈ enumerate(B)
-        np = rand(bosonic_dist)
+        i, j = bond_sites(H, kb)
+        Nk = count(e -> e.j == j, x[i])
+        np = rand_boson!(fB, Nk, βω)
         if 0 ≤ np ≤ H.nBmax
-            i, j = bond_sites(H, kb)
-            Nkink = count(e -> e.j == j, x[i])
-            P_acc = (np^Nkink) / (n0^Nkink)
-            if metro(P_acc)
-                B[kb] = np
-            end
+            B[kb] = np
         end
     end
     return nothing
@@ -66,12 +133,13 @@ end
 
         N_cycle = total_cycle_size = 0
         sweep_size = 10
+        fB = BBDist[]
         while time_ns() < t_limit
             total_cycle_size += worm_cycle!(x, H, 
                 update_consts, cycle_probs,
                 sweep_size, nothing
             )
-            update_bosons!(H, x)
+            update_bosons!(H, x, fB)
             N_cycle += sweep_size
         end
         average_size = total_cycle_size / N_cycle
@@ -104,7 +172,7 @@ end
                 update_consts, cycle_probs,
                 sweep_size, Gf
             )
-            update_bosons!(H,x)
+            update_bosons!(H,x,fB)
             N_cycle += sweep_size
             tic = time_ns()
             $(
