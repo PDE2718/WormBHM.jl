@@ -1,74 +1,10 @@
-using Random
-struct BBDist # P(n) = n^k * exp(-b*n)
-    k::Int
-    b::Float64
-    _bias::Int
-    cdf::Vector{Float64}
-end
-function BBDist(k::Int, b::Float64)
-    @assert k ≥ 0
-    @assert b > 0.0
-    P = 1.0
-    n = 0
-    _bias = 1
-    cdf = Float64[1.0]
-    S = Snew = 1.0
-    while n < 1000000
-        n += 1
-        P = exp(k * log(n) - b * n)
-        Snew += P
-        push!(cdf, Snew)
-        if S / Snew > prevfloat(1.0)
-            break
-        else
-            S = Snew
-        end
-    end
-    cdf ./= cdf[end]
-    @assert issorted(cdf)
-    while cdf[end] > prevfloat(1.0)
-        pop!(cdf)
-    end
-    push!(cdf, 1.0)
-    while cdf[1] < eps(Float64)
-        popfirst!(cdf)
-        _bias += 1
-    end
-    resize!(cdf, length(cdf))
-    return BBDist(k, b, _bias, cdf)
-end
-function (f::BBDist)(rng=Random.default_rng())
-    return searchsortedfirst(f.cdf, rand(rng)) - f._bias
-end
-function rand_boson!(fB::Vector{BBDist}, Nk::Int, βω::Float64)
-    @assert Nk ≥ 0
-    @assert βω > 0.0
-    l0 = length(fB)
-    for k ∈ l0:Nk
-        push!(fB, BBDist(k, βω))
-    end
-    f = fB[Nk+1]
-    @assert f.b == βω
-    return fB[Nk+1]()
+using Random, Distributions
+
+function randbosonfield(nk::Int, invβω::Float64) where {T}
+    return rand(Gamma(nk + 1, invβω))
 end
 
-# function update_bosons!(H::BBCubic, x::Wsheet{4})
-#     bosonic_dist = Geometric(1 - exp(-x.β * H.ω))
-#     B = H.bosons
-#     for (kb, n0) ∈ enumerate(B)
-#         np = rand(bosonic_dist)
-#         if 0 ≤ np ≤ H.nBmax
-#             i, j = bond_sites(H, kb)
-#             Nkink = count(e -> e.j == j, x[i])
-#             P_acc = (np^Nkink) / (n0^Nkink)
-#             if metro(P_acc)
-#                 B[kb] = np
-#             end
-#         end
-#     end
-#     return nothing
-# end
-function update_bosons!(H::BBCubic, x::Wsheet{4}, fB::Vector{BBDist})
+function update_bosons!(H::BBCubicCF, x::Wsheet{4})
     βω = x.β * H.ω
     B = H.bosons
     for (kb, n0) ∈ enumerate(B)
@@ -82,9 +18,9 @@ function update_bosons!(H::BBCubic, x::Wsheet{4}, fB::Vector{BBDist})
     return nothing
 end
 
-@generated function simulate_bbcubic!(
+@generated function simulate_BBCubicCF!(
     x::Wsheet{4},
-    H::BBCubic,
+    H::BBCubicCF,
     update_consts::UpdateConsts,
     cycle_probs::CycleAccumProb,
     time_ther::Second,
@@ -95,9 +31,7 @@ end
     Sk::T_StructureFactor=nothing,
     snapshots::T_Snaps=nothing,
     bosonhist::T_BosonHist=nothing,
-    density_map_boson::T_DensityMapBoson=nothing,
     optimal_update_consts=true,
-    optimal_cycle_probs=true,
     sweep_size_limit::Tuple{Int,Int}=(1, 1024),
     shuffle_snapshot::f64=0.0,
     ) where {
@@ -107,7 +41,6 @@ end
         T_StructureFactor <: Union{StructureFactorND, Nothing},
         T_Snaps <: Union{FixedSizeRecorder, Nothing},
         T_BosonHist <: Union{Vector{Int}, Nothing},
-        T_DensityMapBoson <: Union{DensityMap, Nothing},
     }
     if T_DensityMap == Nothing
         @assert T_StructureFactor == T_Snaps == Nothing "StructureFactor and Snapshots have DensityMap as dependency"
@@ -133,7 +66,7 @@ end
         T_simu::UInt64 = Nanosecond(time_simu).value
 
         t_limit::UInt64 = time_ns() + T_ther
-        
+
         N_cycle = total_cycle_size = 0
         sweep_size = 10
         fB = BBDist[]
@@ -151,20 +84,9 @@ end
         sweep_size = clamp(sweep_size, sweep_size_limit...)
 
         if optimal_update_consts
-            @reset update_consts.Eoff = (Nverts/length(x.wl) + 1)/2x.β
+            @reset update_consts.Eoff = (Nverts/length(x.wl) + 1)/x.β
             @assert update_consts.Eoff > 0
             @info "reset update_consts.Eoff to optimal : $(update_consts)"
-        end
-        if optimal_cycle_probs
-            Wkbar::Float64 = H.J * sum(H.bosons) / length(H.bosons)
-            # P_acc = $(2*zhps) * Wk * update_consts.P_del2ins
-            P_del2ins_opt = inv(Wkbar)
-            P_ins = 0.50 * inv(1+P_del2ins_opt)
-            P_del = 0.5 - P_ins
-            @reset update_consts.P_del2ins = P_del2ins_opt
-            cycle_probs = CycleProb(0.25, P_ins, P_del, 0.25)
-            @info "reset cycle_probs to optimal : $(cycle_probs)"
-            @info "reset update_consts to optimal : $(update_consts)"
         end
 
         # sweep_size = 10
@@ -229,14 +151,6 @@ end
                             end
                             bosonhist[r] += 1
                         end
-                    end
-                end
-            )
-            $(
-                if T_DensityMapBoson ≠ Nothing
-                    quote
-                        density_map_boson.ρ .+= H.bosons
-                        density_map_boson.n_measure += 1
                     end
                 end
             )

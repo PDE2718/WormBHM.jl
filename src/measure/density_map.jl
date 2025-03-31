@@ -37,3 +37,6 @@ function merge(ms::Array{DensityMap{Nw}}) where {Nw}
         ψ, ρ, n_measure
     )
 end
+function density_map(r::DensityMap{Nw}) where {Nw}
+    return r.ρ .* inv.(r.n_measure)
+end
