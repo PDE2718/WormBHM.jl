@@ -72,7 +72,7 @@
             @info "reset update_consts.Eoff to optimal : $(update_consts)"
         end
         if optimal_cycle_probs
-            Wkbar::Float64 = H.J * sum(H.bosons) / length(H.bosons)
+            Wkbar::Float64 = 1.0 + (H.J * sum(H.bosons) / length(H.bosons))
             # P_acc = $(2*zhps) * Wk * update_consts.P_del2ins
             P_del2ins_opt = inv(Wkbar)
             P_ins = 0.50 * inv(1+P_del2ins_opt)
