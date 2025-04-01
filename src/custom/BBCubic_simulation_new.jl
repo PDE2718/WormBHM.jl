@@ -77,7 +77,7 @@
             P_del2ins_opt = inv(Wkbar)
             P_ins = 0.50 * inv(1+P_del2ins_opt)
             P_del = 0.5 - P_ins
-            @reset update_consts.P_del2ins = P_del2ins_opt
+            @reset update_consts.P_del2ins = P_del / P_ins
             cycle_probs = CycleProb(0.25, P_ins, P_del, 0.25)
             @info "reset cycle_probs to optimal : $(cycle_probs)"
             @info "reset update_consts to optimal : $(update_consts)"
