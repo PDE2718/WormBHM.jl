@@ -1,4 +1,4 @@
-@generated function simulate_bbcubic!(
+@generated function simulate_bbcubic_new!(
     x::Wsheet{4},
     H::BBCubic,
     update_consts::UpdateConsts,
@@ -54,11 +54,11 @@
         sweep_size = 10
         fB = BBDist[]
         while time_ns() < t_limit
-            total_cycle_size += worm_cycle!(x, H, 
+            total_cycle_size += worm_cycle_bbcubic!(x, H, 
                 update_consts, cycle_probs,
-                sweep_size, nothing
+                sweep_size, nothing, fB
             )
-            update_bosons!(H, x, fB)
+            # update_bosons!(H, x, fB)
             N_cycle += sweep_size
         end
         average_size = total_cycle_size / N_cycle
@@ -98,11 +98,11 @@
         N_cycle = total_cycle_size = 0
         T_measure = N_measure = 0
         while time_ns() < t_limit
-            total_cycle_size += worm_cycle!(x, H,
+            total_cycle_size += worm_cycle_bbcubic!(x, H,
                 update_consts, cycle_probs,
-                sweep_size, Gf
+                sweep_size, Gf, fB
             )
-            update_bosons!(H,x,fB)
+            # update_bosons!(H,x,fB)
             N_cycle += sweep_size
             tic = time_ns()
             $(

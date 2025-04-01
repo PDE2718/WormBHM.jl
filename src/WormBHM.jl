@@ -14,9 +14,11 @@ begin
 end
 include("hamiltionian.jl")
 include("update.jl")
+include("custom/update_bbcubic.jl")
 include("simulation.jl")
 include("extra_tools.jl")
 include("custom/BBCubic_simulation.jl")
+include("custom/BBCubic_simulation_new.jl")
 
 
 for n in names(@__MODULE__; all=true)
