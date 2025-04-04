@@ -1,7 +1,7 @@
 using WormBHM
 import WormBHM: BH_Parameters, wl_size, get_nbs, get_hps, diagE, bond_weight, simple_measure_names, simple_measure!
 
-@kwdef struct BBCubic <: BH_Parameters{true,4,6,6}
+@kwdef struct BBCubicU <: BH_Parameters{true,4,6,6}
     nmax::StateType = 1
     Lx::IndexType = 0
     Ly::IndexType = 0
@@ -10,16 +10,17 @@ import WormBHM: BH_Parameters, wl_size, get_nbs, get_hps, diagE, bond_weight, si
     U::f64 = 0.0
     V::f64 = 0.0
     μ::f64 = 0.0
-    ω::f64 = 1.0
+    μb::f64 = 1.0
+    Ub::f64 = 1.0
     nBmax::Int = 1
     bosons::Array{Int,4} = zeros(Int, (Lx, Ly, Lz, 3))
 end
 
-function wl_size(H::BBCubic)::NTuple{4,Int}
+function wl_size(H::BBCubicU)::NTuple{4,Int}
     return (Int(H.Lx), Int(H.Ly), Int(H.Lz),1)
 end
 
-function get_nbs(H::BBCubic, i::Integer)::NTuple{6,Int}
+function get_nbs(H::BBCubicU, i::Integer)::NTuple{6,Int}
     @inbounds begin
         Lx, Ly, Lz, _ = wl_size(H)
         lid = LinearIndices((Lx, Ly, Lz))
@@ -35,15 +36,15 @@ function get_nbs(H::BBCubic, i::Integer)::NTuple{6,Int}
     end
 end
 
-function get_hps(H::BBCubic, i::Integer)::NTuple{6,Int}
+function get_hps(H::BBCubicU, i::Integer)::NTuple{6,Int}
     return get_nbs(H, i)
 end
 
-function diagE(H::BBCubic, i, ni::StateType, njs::NTuple{6,StateType})::f64
+function diagE(H::BBCubicU, i, ni::StateType, njs::NTuple{6,StateType})::f64
     return 0.5 * H.U * ni * (ni - 1) - H.μ * ni + H.V * ni * sum(njs)
 end
 
-function bond_weight(H::BBCubic, i::Integer, j::Integer)::f64
+function bond_weight(H::BBCubicU, i::Integer, j::Integer)::f64
     Lx, Ly, Lz = wl_size(H)
     hps = get_hps(H, i)
     x0, y0, z0 = CartesianIndices((Lx, Ly, Lz))[i] |> Tuple
@@ -66,19 +67,19 @@ function bond_weight(H::BBCubic, i::Integer, j::Integer)::f64
     )
 end
 
-function bond_sites(H::BBCubic, kb::Integer)::NTuple{2,Int}
+function bond_sites(H::BBCubicU, kb::Integer)::NTuple{2,Int}
     x0, y0, z0, sb = CartesianIndices((H.Lx, H.Ly, H.Lz, 3))[kb] |> Tuple
     i = LinearIndices((H.Lx, H.Ly, H.Lz))[x0, y0, z0]
     return (i, get_hps(H, i)[2sb-1])
 end
 
-function simple_measure_names(::Type{BBCubic})
-    return (:E, :E², :N, :N², :K, :U, :μ, :V, :Kx, :Ky, :Kz, :Wx², :Wy², :Wz², :Nb)
+function simple_measure_names(::Type{BBCubicU})
+    return (:E, :E², :N, :N², :K, :U, :μ, :V, :Kx, :Ky, :Kz, :Wx², :Wy², :Wz², :Nb, :Nb²)
 end
 
 function simple_measure!(m,
     x::Wsheet{4},
-    H::BBCubic
+    H::BBCubicU
 )::Nothing
     U = μ = V = N = 0.0
     for (i, c) ∈ enumerate(CartesianIndices(x.wl))
@@ -135,21 +136,26 @@ function simple_measure!(m,
     K = Kx + Ky + Kz
     E = U + μ + V + K
     Nb = sum(H.bosons)
-    m.props = m.props .+ (E, abs2(E), N, abs2(N), K, U, μ, V, Kx, Ky, Kz, abs2(Wx), abs2(Wy), abs2(Wz), Nb)
+    Nb2 = sum(abs2, H.bosons)
+    m.props = m.props .+ (E, abs2(E), N, abs2(N), K, U, μ, V, Kx, Ky, Kz, abs2(Wx), abs2(Wy), abs2(Wz), Nb, Nb2)
     m.n_measure += 1
     return nothing
 end
 
 using Random
-struct BBDist # P(n) = n^k * exp(-b*n)
+struct BBDistU # P(n) = n^k * exp(- a n² - b n)
     k::Int
+    a::Float64
     b::Float64
     _bias::Int
     cdf::Vector{Float64}
 end
-function BBDist(k::Int, b::Float64)
+function BBDistBuffer(H::BBCubicU)
+    return BBDistU[]
+end
+function BBDistU(k::Int, a::Float64, b::Float64)
     @assert k ≥ 0
-    @assert b > 0.0
+    @assert (a > 0. || (a==0. && b > 0.))
     P = 1.0
     n = 0
     _bias = 1
@@ -157,7 +163,7 @@ function BBDist(k::Int, b::Float64)
     S = Snew = 1.0
     while n < 1000000
         n += 1
-        P = exp(k * log(n) - b * n)
+        P = exp(k * log(n) - a * abs2(n) - b * n)
         Snew += P
         push!(cdf, Snew)
         if S / Snew > prevfloat(1.0)
@@ -177,39 +183,34 @@ function BBDist(k::Int, b::Float64)
         _bias += 1
     end
     resize!(cdf, length(cdf))
-    return BBDist(k, b, _bias, cdf)
+    return BBDistU(k, a, b, _bias, cdf)
 end
-function (f::BBDist)(rng=Random.default_rng())
+function (f::BBDistU)(rng=Random.default_rng())
     return searchsortedfirst(f.cdf, rand(rng)) - f._bias
 end
-function BBDistBuffer(H::BBCubic)
-    return BBDist[]
-end
-function rand_boson!(fB::Vector{BBDist}, Nk::Int, βω::Float64)
+function rand_boson!(fB::Vector{BBDistU}, Nk::Int, a::Float64, b::Float64)
     @assert Nk ≥ 0
-    @assert βω > 0.0
     l0 = length(fB)
     for k ∈ l0:Nk
-        push!(fB, BBDist(k, βω))
+        push!(fB, BBDistU(k, a, b))
     end
     f = fB[Nk+1]
-    if f.b == βω
-        return fB[Nk+1]()
+    if f.a == a && f.b == b
+        return f()
     else
         empty!(fB)
-        return rand_boson!(fB, Nk, βω)
+        return rand_boson!(fB, Nk, a, b)
     end
-    # @assert f.b == βω
-    # return fB[Nk+1]()
 end
 
-function update_bosons!(H::BBCubic, x::Wsheet{4}, fB::Vector{BBDist})
-    βω = x.β * H.ω
+function update_bosons!(H::BBCubicU, x::Wsheet{4}, fB::Vector{BBDistU})
     B = H.bosons
+    a = x.β * 0.5 * H.Ub
+    b = - x.β * (0.5 * H.Ub + H.μb)
     for kb ∈ eachindex(B)
         i, j = bond_sites(H, kb)
         Nk = count(e -> e.j == j, x[i])
-        np = rand_boson!(fB, Nk, βω)
+        np = rand_boson!(fB, Nk, a, b)
         if 0 ≤ np ≤ H.nBmax
             B[kb] = np
         end
@@ -217,31 +218,16 @@ function update_bosons!(H::BBCubic, x::Wsheet{4}, fB::Vector{BBDist})
     return nothing
 end
 
-function update_rand_boson!(H::BBCubic, x::Wsheet{4}, fB::Vector{BBDist})
+function update_rand_boson!(H::BBCubicU, x::Wsheet{4}, fB::Vector{BBDistU})
     B = H.bosons
+    a = x.β * 0.5 * H.Ub
+    b = -x.β * (0.5 * H.Ub + H.μb)
     kij = rand(eachindex(B))
     i, j = bond_sites(H, kij)
     Nk = count(e -> e.j == j, x[i])
-    np = rand_boson!(fB, Nk, x.β * H.ω)
+    np = rand_boson!(fB, Nk, a, b)
     if 0 ≤ np ≤ H.nBmax
         B[kij] = np
     end
     return nothing
 end
-
-# function update_bosons!(H::BBCubic, x::Wsheet{4})
-#     bosonic_dist = Geometric(1 - exp(-x.β * H.ω))
-#     B = H.bosons
-#     for (kb, n0) ∈ enumerate(B)
-#         np = rand(bosonic_dist)
-#         if 0 ≤ np ≤ H.nBmax
-#             i, j = bond_sites(H, kb)
-#             Nkink = count(e -> e.j == j, x[i])
-#             P_acc = (np^Nkink) / (n0^Nkink)
-#             if metro(P_acc)
-#                 B[kb] = np
-#             end
-#         end
-#     end
-#     return nothing
-# end

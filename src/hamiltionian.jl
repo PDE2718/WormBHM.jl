@@ -59,5 +59,6 @@ include("models/GenericEBHM.jl")
 # include("models/KCM_Kagome.jl")
 include("models/HybridKagome.jl")
 include("models/BBCubic.jl")
+include("models/BBCubicU.jl")
 
 ##########################################################################################

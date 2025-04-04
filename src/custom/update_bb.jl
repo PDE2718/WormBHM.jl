@@ -1,23 +1,24 @@
-@generated function worm_cycle_bbcubic!(
+@generated function worm_cycle_bb!(
         x::Wsheet{Nw},
         H::Ham,
         update_consts::UpdateConsts,
         cycle_probs::CycleAccumProb,
         n_cycle::Int,
         G::T_G,
-        fB::Vector{BBDist},
+        fB::Vector{T_BBDist},
     )::Int where {
         Nw,
-        Ham<:BH_Parameters,
+        Ham<:Union{BBCubic, BBCubicU},
         T_G<:Union{GreenFuncBin, Nothing},
+        T_BBDist,
     }
 
     @assert Nw == N_wldim(Ham)
-    @assert Ham == BBCubic
+    @assert (Ham == BBCubic && T_BBDist == BBDist) || (Ham == BBCubicU && T_BBDist == BBDistU)
     znbs::Int = N_nbs(Ham)
     zhps::Int = N_hps(Ham)
     mes_green::Bool = ~(T_G == Nothing)
-    is_KCM_Kagome::Bool = (Ham == HybridKagome)
+    is_KCM_Kagome::Bool = false
 
     # println("compiling update for $(Ham) (Ndim = $(Ndim), znbs = $(znbs)), zhps = $(zhps), GF = $(mes_green)")
     quote
