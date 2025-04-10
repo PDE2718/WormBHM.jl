@@ -6,15 +6,12 @@
         n_cycle::Int,
         G::T_G,
         fB::Vector{T_BBDist},
-    )::Int where {
-        Nw,
-        Ham<:Union{BBCubic, BBCubicU},
+    )::Int where {Nw, Ham<:BH_Parameters,
         T_G<:Union{GreenFuncBin, Nothing},
         T_BBDist,
     }
 
     @assert Nw == N_wldim(Ham)
-    @assert (Ham == BBCubic && T_BBDist == BBDist) || (Ham == BBCubicU && T_BBDist == BBDistU)
     znbs::Int = N_nbs(Ham)
     zhps::Int = N_hps(Ham)
     mes_green::Bool = ~(T_G == Nothing)
@@ -436,7 +433,7 @@
                     @goto CYCLE_START🔁
                 end
             else # update boson
-                update_rand_boson!(H, x, fB)
+                update_rand_boson!(fB, H, x)
                 @goto CYCLE_START🔁
             end
         end

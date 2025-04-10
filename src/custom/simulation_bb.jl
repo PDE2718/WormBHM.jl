@@ -1,5 +1,5 @@
 @generated function simulate_bb!(
-    x::Wsheet{4},
+    x::Wsheet{Nw},
     H::Ham,
     update_consts::UpdateConsts,
     cycle_probs::CycleAccumProb,
@@ -16,8 +16,7 @@
     optimal_cycle_probs=true,
     sweep_size_limit::Tuple{Int,Int}=(1, 1024),
     shuffle_snapshot::f64=0.0,
-    ) where {
-        Ham <: Union{BBCubic, BBCubicU},
+    ) where {Nw, Ham <: BH_Parameters,
         T_GreenFuncBin <: Union{GreenFuncBin,Nothing},
         T_SimpleMeasure <: Union{SimpleMeasure, Nothing},
         T_DensityMap <: Union{DensityMap, Nothing},

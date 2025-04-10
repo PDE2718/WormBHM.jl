@@ -1,26 +1,6 @@
-using Random, Distributions
-
-function randbosonfield(nk::Int, invβω::Float64) where {T}
-    return rand(Gamma(nk + 1, invβω))
-end
-
-function update_bosons!(H::BBCubicCF, x::Wsheet{4})
-    βω = x.β * H.ω
-    B = H.bosons
-    for (kb, n0) ∈ enumerate(B)
-        i, j = bond_sites(H, kb)
-        Nk = count(e -> e.j == j, x[i])
-        np = rand_boson!(fB, Nk, βω)
-        if 0 ≤ np ≤ H.nBmax
-            B[kb] = np
-        end
-    end
-    return nothing
-end
-
-@generated function simulate_BBCubicCF!(
-    x::Wsheet{4},
-    H::BBCubicCF,
+@generated function simulate_opt!(
+    x::Wsheet{Nw},
+    H::Ham,
     update_consts::UpdateConsts,
     cycle_probs::CycleAccumProb,
     time_ther::Second,
@@ -30,17 +10,16 @@ end
     Gf::T_GreenFuncBin=nothing,
     Sk::T_StructureFactor=nothing,
     snapshots::T_Snaps=nothing,
-    bosonhist::T_BosonHist=nothing,
     optimal_update_consts=true,
+    optimal_cycle_probs=true,
     sweep_size_limit::Tuple{Int,Int}=(1, 1024),
     shuffle_snapshot::f64=0.0,
-    ) where {
+    ) where {Nw, Ham <: BH_Parameters,
         T_GreenFuncBin <: Union{GreenFuncBin,Nothing},
         T_SimpleMeasure <: Union{SimpleMeasure, Nothing},
         T_DensityMap <: Union{DensityMap, Nothing},
         T_StructureFactor <: Union{StructureFactorND, Nothing},
-        T_Snaps <: Union{FixedSizeRecorder, Nothing},
-        T_BosonHist <: Union{Vector{Int}, Nothing},
+        T_Snaps <: Union{FixedSizeRecorder, Nothing}
     }
     if T_DensityMap == Nothing
         @assert T_StructureFactor == T_Snaps == Nothing "StructureFactor and Snapshots have DensityMap as dependency"
@@ -66,16 +45,14 @@ end
         T_simu::UInt64 = Nanosecond(time_simu).value
 
         t_limit::UInt64 = time_ns() + T_ther
-
+        
         N_cycle = total_cycle_size = 0
         sweep_size = 10
-        fB = BBDist[]
         while time_ns() < t_limit
             total_cycle_size += worm_cycle!(x, H, 
                 update_consts, cycle_probs,
                 sweep_size, nothing
             )
-            update_bosons!(H, x, fB)
             N_cycle += sweep_size
         end
         average_size = total_cycle_size / N_cycle
@@ -84,9 +61,30 @@ end
         sweep_size = clamp(sweep_size, sweep_size_limit...)
 
         if optimal_update_consts
-            @reset update_consts.Eoff = (Nverts/length(x.wl) + 1)/x.β
+            @reset update_consts.Eoff = (Nverts/length(x.wl) + 1)/2x.β
             @assert update_consts.Eoff > 0
             @info "reset update_consts.Eoff to optimal : $(update_consts)"
+        end
+        if optimal_cycle_probs
+            # P_acc = $(2*zhps) * Wk * update_consts.P_del2ins
+
+            # Wkbar::Float64 = 1.0 + (H.J * sum(H.bosons) / length(H.bosons))
+            Wkbar = 0.0
+            Nbond = 0
+            for e ∈ Iterators.Flatten(x.wl)
+                if IndexType(0) < e.i < e.j
+                    Wkbar += bond_weight(H, e.i, e.j)
+                    Nbond += 1
+                end
+            end
+            Wkbar /= Nbond
+            P_del2ins_opt = inv(Wkbar)
+            P_ins = 0.50 * inv(1+P_del2ins_opt)
+            P_del = 0.5 - P_ins
+            @reset update_consts.P_del2ins = P_del / P_ins
+            cycle_probs = CycleProb(0.25, P_ins, P_del, 0.25)
+            @info "reset cycle_probs to optimal : $(cycle_probs)"
+            @info "reset update_consts to optimal : $(update_consts)"
         end
 
         # sweep_size = 10
@@ -108,7 +106,6 @@ end
                 update_consts, cycle_probs,
                 sweep_size, Gf
             )
-            update_bosons!(H,x,fB)
             N_cycle += sweep_size
             tic = time_ns()
             $(
@@ -139,21 +136,7 @@ end
                     end
                 end
             )
-            $(
-                if T_BosonHist ≠ Nothing
-                    quote
-                        for nb ∈ H.bosons
-                            r = nb + 1
-                            if length(bosonhist) < r
-                                l0 = length(bosonhist)
-                                resize!(bosonhist, r)
-                                bosonhist[(l0+1):r] .= 0
-                            end
-                            bosonhist[r] += 1
-                        end
-                    end
-                end
-            )
+
             T_measure += (time_ns() - tic)
             N_measure += 1
         end

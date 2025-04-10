@@ -1,6 +1,3 @@
-using WormBHM
-import WormBHM: BH_Parameters, wl_size, get_nbs, get_hps, diagE, bond_weight, simple_measure_names, simple_measure!
-
 @kwdef struct BBCubicU <: BH_Parameters{true,4,6,6}
     nmax::StateType = 1
     Lx::IndexType = 0
@@ -17,7 +14,7 @@ import WormBHM: BH_Parameters, wl_size, get_nbs, get_hps, diagE, bond_weight, si
 end
 
 function wl_size(H::BBCubicU)::NTuple{4,Int}
-    return (Int(H.Lx), Int(H.Ly), Int(H.Lz),1)
+    return (Int(H.Lx), Int(H.Ly), Int(H.Lz), 1)
 end
 
 function get_nbs(H::BBCubicU, i::Integer)::NTuple{6,Int}
@@ -68,8 +65,9 @@ function bond_weight(H::BBCubicU, i::Integer, j::Integer)::f64
 end
 
 function bond_sites(H::BBCubicU, kb::Integer)::NTuple{2,Int}
-    x0, y0, z0, sb = CartesianIndices((H.Lx, H.Ly, H.Lz, 3))[kb] |> Tuple
-    i = LinearIndices((H.Lx, H.Ly, H.Lz))[x0, y0, z0]
+    Lx, Ly, Lz = wl_size(H)
+    x0, y0, z0, sb = CartesianIndices((Lx, Ly, Lz, 3))[kb] |> Tuple
+    i = LinearIndices((Lx, Ly, Lz))[x0, y0, z0]
     return (i, get_hps(H, i)[2sb-1])
 end
 
@@ -142,92 +140,83 @@ function simple_measure!(m,
     return nothing
 end
 
-using Random
-struct BBDistU # P(n) = n^k * exp(- a n² - b n)
-    k::Int
-    a::Float64
-    b::Float64
-    _bias::Int
-    cdf::Vector{Float64}
-end
 function BBDistBuffer(H::BBCubicU)
     return BBDistU[]
 end
-function BBDistU(k::Int, a::Float64, b::Float64)
-    @assert k ≥ 0
-    @assert (a > 0. || (a==0. && b > 0.))
-    P = 1.0
-    n = 0
-    _bias = 1
-    cdf = Float64[1.0]
-    S = Snew = 1.0
-    while n < 1000000
-        n += 1
-        P = exp(k * log(n) - a * abs2(n) - b * n)
-        Snew += P
-        push!(cdf, Snew)
-        if S / Snew > prevfloat(1.0)
-            break
-        else
-            S = Snew
-        end
-    end
-    cdf ./= cdf[end]
-    @assert issorted(cdf)
-    while cdf[end] > prevfloat(1.0)
-        pop!(cdf)
-    end
-    push!(cdf, 1.0)
-    while cdf[1] < eps(Float64)
-        popfirst!(cdf)
-        _bias += 1
-    end
-    resize!(cdf, length(cdf))
-    return BBDistU(k, a, b, _bias, cdf)
-end
-function (f::BBDistU)(rng=Random.default_rng())
-    return searchsortedfirst(f.cdf, rand(rng)) - f._bias
-end
-function rand_boson!(fB::Vector{BBDistU}, Nk::Int, a::Float64, b::Float64)
-    @assert Nk ≥ 0
-    l0 = length(fB)
-    for k ∈ l0:Nk
-        push!(fB, BBDistU(k, a, b))
-    end
-    f = fB[Nk+1]
-    if f.a == a && f.b == b
-        return f()
-    else
-        empty!(fB)
-        return rand_boson!(fB, Nk, a, b)
-    end
-end
 
-function update_bosons!(H::BBCubicU, x::Wsheet{4}, fB::Vector{BBDistU})
-    B = H.bosons
-    a = x.β * 0.5 * H.Ub
-    b = - x.β * (0.5 * H.Ub + H.μb)
-    for kb ∈ eachindex(B)
-        i, j = bond_sites(H, kb)
-        Nk = count(e -> e.j == j, x[i])
-        np = rand_boson!(fB, Nk, a, b)
-        if 0 ≤ np ≤ H.nBmax
-            B[kb] = np
-        end
-    end
-    return nothing
-end
+# using Random
+# struct BBDistU # P(n) = n^k * exp(- a n² - b n)
+#     k::Int
+#     a::Float64
+#     b::Float64
+#     _bias::Int
+#     cdf::Vector{Float64}
+# end
+# function BBDistBuffer(H::BBCubicU)
+#     return BBDistU[]
+# end
+# function BBDistU(k::Int, a::Float64, b::Float64)
+#     @assert k ≥ 0
+#     @assert (a > 0. || (a==0. && b > 0.))
+#     P = 1.0
+#     n = 0
+#     _bias = 1
+#     cdf = Float64[1.0]
+#     S = Snew = 1.0
+#     while n < 1000000
+#         n += 1
+#         P = exp(k * log(n) - a * abs2(n) - b * n)
+#         Snew += P
+#         push!(cdf, Snew)
+#         if S / Snew > prevfloat(1.0)
+#             break
+#         else
+#             S = Snew
+#         end
+#     end
+#     cdf ./= cdf[end]
+#     @assert issorted(cdf)
+#     while cdf[end] > prevfloat(1.0)
+#         pop!(cdf)
+#     end
+#     push!(cdf, 1.0)
+#     while cdf[1] < eps(Float64)
+#         popfirst!(cdf)
+#         _bias += 1
+#     end
+#     resize!(cdf, length(cdf))
+#     return BBDistU(k, a, b, _bias, cdf)
+# end
+# function (f::BBDistU)(rng=Random.default_rng())
+#     return searchsortedfirst(f.cdf, rand(rng)) - f._bias
+# end
+# function rand_boson!(fB::Vector{BBDistU}, Nk::Int, a::Float64, b::Float64)
+#     @assert Nk ≥ 0
+#     l0 = length(fB)
+#     for k ∈ l0:Nk
+#         push!(fB, BBDistU(k, a, b))
+#     end
+#     f = fB[Nk+1]
+#     if f.a == a && f.b == b
+#         return f()
+#     else
+#         empty!(fB)
+#         return rand_boson!(fB, Nk, a, b)
+#     end
+# end
 
-function update_rand_boson!(H::BBCubicU, x::Wsheet{4}, fB::Vector{BBDistU})
-    B = H.bosons
-    a = x.β * 0.5 * H.Ub
-    b = -x.β * (0.5 * H.Ub + H.μb)
-    kij = rand(eachindex(B))
-    i, j = bond_sites(H, kij)
-    Nk = count(e -> e.j == j, x[i])
-    np = rand_boson!(fB, Nk, a, b)
-    if 0 ≤ np ≤ H.nBmax
-        B[kij] = np
-    end
-    return nothing
-end
+
+# function update_bosons!(H::BBCubicU, x::Wsheet{4}, fB::Vector{BBDistU})
+#     B = H.bosons
+#     a = x.β * 0.5 * H.Ub
+#     b = - x.β * (0.5 * H.Ub + H.μb)
+#     for kb ∈ eachindex(B)
+#         i, j = bond_sites(H, kb)
+#         Nk = count(e -> e.j == j, x[i])
+#         np = rand_boson!(fB, Nk, a, b)
+#         if 0 ≤ np ≤ H.nBmax
+#             B[kb] = np
+#         end
+#     end
+#     return nothing
+# end

@@ -17,6 +17,7 @@ include("update.jl")
 include("custom/update_bb.jl")
 include("simulation.jl")
 include("custom/simulation_bb.jl")
+include("custom/simulation_opt.jl")
 include("extra_tools.jl")
 
 for n in names(@__MODULE__; all=true)
