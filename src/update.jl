@@ -78,6 +78,8 @@
             # println("Start at $(i => head.t), head = $(head)")
             # begin worm cycle
             # single_cycle_trials = 0
+            
+            sizehint_wl!(li)
 
             @label CYCLE_START🔁
 

@@ -78,13 +78,10 @@
                 tail, head = (head, tail)
                 δ = -δ
             end
-            # t = head.t
             head_id = vindex(li, head.t)
             cycle_size += 1
-            # println("Start at $(i => head.t), head = $(head)")
-            # begin worm cycle
-            # single_cycle_trials = 0
-
+            sizehint_wl!(li)
+            
             @label CYCLE_START🔁
 
             $(

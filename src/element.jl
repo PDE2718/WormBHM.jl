@@ -163,6 +163,14 @@ end
     return @inbounds l[i]
 end
 
+function sizehint_wl!(l)
+    L0 = length(l)
+    if l.ref.mem.length > L0 + 8
+        sizehint!(l, L0 + 4; shrink=true)
+    end
+    return nothing
+end
+
 """
     Wsheet{N}
 
@@ -199,3 +207,4 @@ end
 function size(X::Wsheet{N}) where {N}
     return size(X.wl)
 end
+
