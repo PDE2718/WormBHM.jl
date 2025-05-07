@@ -107,14 +107,34 @@ isless(t::f64, b::Element)::Bool = isless(t, b.t)
 ==(a::Element, t::f64)::Bool = ==(a.t, t)
 ==(t::f64, b::Element)::Bool = ==(t, b.t)
 
+# function vindex(l::Wline, t::f64)::Int
+#     return @inbounds searchsortedfirst(l, t)
+# end
 function vindex(l::Wline, t::f64)::Int
-    return @inbounds searchsortedfirst(l, t)
+    ESIZE = sizeof(Element)
+    left = 0
+    right = lastindex(l) - 1
+    l0 = pointer(l) |> Ptr{Float64}
+    if right == -1
+        return 1
+    end
+    if unsafe_load(muladd(ESIZE, right, l0)) < t
+        return right + 2
+    end
+    while left < right
+        mid = (left + right) >>> 1
+        if unsafe_load(muladd(ESIZE, mid, l0)) < t
+            left = mid + 1
+        else
+            right = mid
+        end
+    end
+    return left + 1
 end
 
 function slice_at(l::Wline, t::f64)::StateType
     return l[searchsortedfirst(l, t)].n_L
 end
-
 
 function close_to_any(l::Wline, t::f64)::Bool
     return vindex(l, t + t_eps) ≠ vindex(l, t - t_eps)

@@ -48,13 +48,13 @@ mutable struct GreenFuncBin{IsLattice, FullImaginary,
     const Gl::T_Gl
     insertion_trial::Int
 end
-function GreenFuncBin(x::Wsheet, update_consts::UpdateConsts;
+function GreenFuncBin(x::Wsheet, hyperpara;
     IsLattice::Bool = true,
     FullImaginary::Union{Nothing, Bool} = nothing,
     lmax::Int = 0,
     )
     @assert x.β > 0.
-    Cw = update_consts.Cw
+    Cw = hyperpara.Cw
     @assert Cw > 0.
     wlshape = size(x.wl)
     _Pl = if FullImaginary == nothing
@@ -165,13 +165,13 @@ end
 
 # two ways of normalizing greens function, as a cross check
 function _norm_coeff(G::GreenFuncBin{IsLattice,FullImaginary,T_Pl,T_G0,T_Gl}) where {IsLattice,FullImaginary,T_Pl,T_G0,T_Gl}
-    Γ = inv(4 * G.Cw * G.insertion_trial)
+    Γ = inv(G.Cw * G.insertion_trial)
     if IsLattice
         Nsub = size(G.G0)[end]
-        inv(4 * G.Cw * G.insertion_trial) * Nsub
+        inv(G.Cw * G.insertion_trial) * Nsub
     else
         @assert allequal(size(G.G0))
-        inv(4 * G.Cw * G.insertion_trial) * size(G.G0)[end]
+        inv(G.Cw * G.insertion_trial) * size(G.G0)[end]
     end
 end
 

@@ -31,3 +31,20 @@ function CycleProb(P_move_worm, P_insert_kink, P_delete_kink, P_glue_worm)::Cycl
     @assert 0. < p.move_worm < p.insert_kink < p.delete_kink < 1.
     return p
 end
+
+@kwdef struct UpdateHyperPara
+    Cw::f64 = 1.0
+    Eoff::f64 = 1.0
+    P_move::f64 = 1.0
+    P_ins::f64  = 1.0
+    P_del::f64  = 1.0
+    P_glue::f64 = 1.0
+end
+function AP_tabulate(para::UpdateHyperPara, worm_action::f64=1.0)
+    F_move = F_tot = para.P_move
+    F_ins = (F_tot += para.P_ins)
+    F_del = (F_tot += para.P_del)
+    F_glue = (F_tot += para.P_glue)
+    @assert 0. < F_move < F_ins < F_del < F_glue
+    return (F_move/F_glue, F_ins/F_glue, F_del/F_glue, 1.0) .* worm_action
+end

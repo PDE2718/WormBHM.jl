@@ -39,7 +39,9 @@ function BBDist(k::Int, b::Float64)
 end
 
 function (f::BBDist)(rng=Random.default_rng())
-    return searchsortedfirst(f.cdf, rand(rng)) - f._bias
+    n = searchsortedfirst(f.cdf, rand(rng)) - f._bias
+    @assert n ≥ 0
+    return n
 end
 
 struct BBDistU # P(n) = n^k * exp(- a n² - b n)
@@ -93,8 +95,8 @@ function rand_boson!(fB::Vector{BBDist}, Nk::Int, βω::Float64)
         push!(fB, BBDist(k, βω))
     end
     f = fB[Nk+1]
-    if f.b == βω
-        return fB[Nk+1]()
+    if f.b == βω && f.k == Nk
+        return f()
     else
         empty!(fB)
         return rand_boson!(fB, Nk, βω)
@@ -108,7 +110,7 @@ function rand_boson!(fB::Vector{BBDistU}, Nk::Int, a::Float64, b::Float64)
         push!(fB, BBDistU(k, a, b))
     end
     f = fB[Nk+1]
-    if f.a == a && f.b == b
+    if f.a == a && f.b == b && f.k == Nk
         return f()
     else
         empty!(fB)
@@ -136,8 +138,55 @@ function update_rand_boson!(fB::Vector{BBDistU}, H, x)
     i, j = bond_sites(H, kij)
     Nk = count(e -> e.j == j, x[i])
     np = rand_boson!(fB, Nk, a, b)
+    while np > H.nBmax
+        np = rand_boson!(fB, Nk, a, b)
+    end
     if 0 ≤ np ≤ H.nBmax
         B[kij] = np
+    end
+    return nothing
+end
+
+function update_rand_boson_trivial!(H, x)
+    B = H.bosons
+    β = x.β
+    a = β * 0.5 * H.Ub
+    b = -β * (0.5 * H.Ub + H.μb)
+    B_inds = eachindex(B)
+    k = rand(B_inds)
+    i, j = bond_sites(H, k)
+    M = count(e -> e.j == j, x[i])
+    n = B[k]
+    np = n + round(Int, randn()/(2β), RoundFromZero)
+    if 0 ≤ np ≤ H.nBmax
+        P_acc = ((np^M) / (n^M)) * exp(n*(a*n+b)-np*(a*np+b))
+        if metro(P_acc)
+            B[k] = np
+        end
+    end
+    
+    kp = k
+    while kp == k
+        k = rand(B_inds)
+        kp = rand(B_inds)
+    end
+
+    i, j = bond_sites(H, k)
+    M = count(e -> e.j == j, x[i])
+    n = B[k]
+
+    i, j = bond_sites(H, kp)
+    Mp = count(e -> e.j == j, x[i])
+    np = B[kp]
+
+    if np ≠ n
+        W1 = n^M * np^Mp
+        W2 = np^M * n^Mp
+        r = (n/np)^(Mp-M)
+        if metro(r)
+            B[k] = np
+            B[kp] = n
+        end
     end
     return nothing
 end

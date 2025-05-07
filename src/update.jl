@@ -1,22 +1,20 @@
 @generated function worm_cycle!(
         x::Wsheet{Nw},
         H::Ham,
-        update_consts::UpdateConsts,
-        cycle_probs::CycleAccumProb,
+        Cw::f64, Eoff::f64,
+        AP_table::NTuple{4, f64},
         n_cycle::Int,
         G::T_G,
-    )::Int where {
-        Nw,
-        Ham<:BH_Parameters,
+    )::Int where {Nw, Ham<:BH_Parameters,
         T_G<:Union{GreenFuncBin, Nothing},
     }
-
+    
     @assert Nw == N_wldim(Ham)
     znbs::Int = N_nbs(Ham)
     zhps::Int = N_hps(Ham)
     mes_green::Bool = ~(T_G == Nothing)
     is_KCM_Kagome::Bool = (Ham == HybridKagome)
-
+    is_Bond_Boson::Bool = (:bosons ∈ fieldnames(Ham))
     # println("compiling update for $(Ham) (Ndim = $(Ndim), znbs = $(znbs)), zhps = $(zhps), GF = $(mes_green)")
     quote
         $(
@@ -28,6 +26,21 @@
         )
         cycle_size::Int = 0
         lattice = Base.OneTo(IndexType(lastindex(x.wl)))
+        F_move, F_ins, F_del, F_glue = AP_table
+        $(
+            if is_Bond_Boson
+                quote
+                    @assert F_glue < 1.0
+                end
+            else
+                quote
+                    @assert F_glue == 1.0
+                end
+            end
+        )
+        P_del2ins = (F_del - F_ins)/(F_ins - F_move)
+        P_glue = F_glue - F_del
+
         @inbounds for _ ∈ 1:n_cycle
             #############################################################################
             ############################# [INSERT_WORM] #################################
@@ -41,7 +54,8 @@
             head_id::Int = vindex(li, t)
             n0::StateType = li[head_id].n_L
             np::StateType = n0 - D
-            P_acc::f64 = 2 * update_consts.Cw * max(np, n0)
+            # P_acc::f64 = 2 * Cw * max(np, n0)
+            P_acc::f64 = 2 * Cw * max(np, n0) * P_glue
             # case insertion failed!
             if np < StateType(0) || np > H.nmax || t < t_eps || t > (1 - t_eps) || !(metro(P_acc)) || close_to_any(li, t)
                 continue
@@ -72,15 +86,10 @@
                 tail, head = (head, tail)
                 δ = -δ
             end
-            # t = head.t
             head_id = vindex(li, head.t)
             cycle_size += 1
-            # println("Start at $(i => head.t), head = $(head)")
-            # begin worm cycle
-            # single_cycle_trials = 0
-            
             sizehint_wl!(li)
-
+            
             @label CYCLE_START🔁
 
             $(
@@ -93,7 +102,7 @@
                 end
             )
             dice = rand()
-            if dice < cycle_probs.move_worm         # [MOVE_WORM]
+            if dice < F_move     # [MOVE_WORM]
                 # println("   moving...")
                 D = randsign()
                 if D * δ == i8(-1)
@@ -163,7 +172,7 @@
                 else
                     @ntuple $znbs k -> assoc_k.n_R
                 end
-                λ₊::f64 = λ₋::f64 = ΔE::f64 = update_consts.Eoff::f64
+                λ₊::f64 = λ₋::f64 = ΔE::f64 = Eoff
                 Eb::f64 = diagE(H, i, head.n_L, nb_states)
                 Ef::f64 = diagE(H, i, head.n_R, nb_states)
                 # println("Eb,Ef = $((Eb,Ef))")
@@ -291,7 +300,7 @@
 
                 @goto CYCLE_START🔁
 
-            elseif dice < cycle_probs.insert_kink  # [INSERT_KINK]
+            elseif dice < F_ins  # [INSERT_KINK]
                 # println("   inserting...")
                 if loc ≠ _at_free
                     @goto CYCLE_START🔁
@@ -321,7 +330,7 @@
                         end
                     end
                 )
-                P_acc = $(2*zhps) * Wk * update_consts.P_del2ins
+                P_acc = $(2*zhps) * Wk * P_del2ins
                 # P_acc = Wk/(Wk + C_kinks)
 
                 if metro(P_acc)
@@ -359,7 +368,7 @@
                 end
                 @goto CYCLE_START🔁
 
-            elseif dice < cycle_probs.delete_kink  # [DELETE_KINK]
+            elseif dice < F_del  # [DELETE_KINK]
                 # println("deleting...")
                 if loc ≠ _at_kink
                     @goto CYCLE_START🔁
@@ -397,7 +406,7 @@
                             end
                         end
                     )
-                    P_acc = inv($(2*zhps) * Wk * update_consts.P_del2ins)
+                    P_acc = inv($(2*zhps) * Wk * P_del2ins)
                     # P_acc = C_kinks / (Wk + C_kinks)
                     if metro(P_acc)
                         head = Element(Kj.t, Kj.i, IndexType(0), Kj.n_L, Kj.n_R, head.op)
@@ -417,8 +426,8 @@
                 end
                 @goto CYCLE_START🔁
 
-            else #if dice < cycle_probs.glue_worm≡1 # [GLUE_WORM]
-                if loc == _at_stop && metro(inv(2 * update_consts.Cw * max(head.n_L, head.n_R)))
+            elseif dice < F_glue # [GLUE_WORM]
+                if loc == _at_stop && metro(inv(2 * Cw * max(head.n_L, head.n_R) * P_glue))
                     # @assert head.i == tail.i && head.t == nextfloat(tail.t, δ)
                     del_id = min(head_id, head_id - δ)
                     deleteat!(li, range(del_id, length=2))
@@ -428,6 +437,16 @@
                 else
                     @goto CYCLE_START🔁
                 end
+            else # update boson
+                $(
+                    if is_Bond_Boson
+                        quote
+                            update_rand_boson!(H, x)
+                            cycle_size += 1
+                            @goto CYCLE_START🔁
+                        end
+                    end
+                )
             end
         end
         return cycle_size

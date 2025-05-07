@@ -1,8 +1,7 @@
-@generated function simulate!(
+@generated function simulate_bb!(
     x::Wsheet{Nw},
     H::Ham,
-    update_consts::UpdateConsts,
-    cycle_probs::CycleAccumProb,
+    hyperpara::UpdateHyperPara,
     time_ther::Second,
     time_simu::Second,
     simple_measure::T_SimpleMeasure=nothing,
@@ -10,14 +9,20 @@
     Gf::T_GreenFuncBin=nothing,
     Sk::T_StructureFactor=nothing,
     snapshots::T_Snaps=nothing,
+    bosonhist::T_BosonHist=nothing,
+    density_map_boson::T_DensityMapBoson=nothing,
+    optimize_hyperpara=true,
     sweep_size_limit::Tuple{Int,Int}=(1, 1024),
     shuffle_snapshot::f64=0.0,
+    worm_action::f64=0.8,
     ) where {Nw, Ham <: BH_Parameters,
         T_GreenFuncBin <: Union{GreenFuncBin,Nothing},
         T_SimpleMeasure <: Union{SimpleMeasure, Nothing},
         T_DensityMap <: Union{DensityMap, Nothing},
         T_StructureFactor <: Union{StructureFactorND, Nothing},
-        T_Snaps <: Union{FixedSizeRecorder, Nothing}
+        T_Snaps <: Union{FixedSizeRecorder, Nothing},
+        T_BosonHist <: Union{Vector{Int}, Nothing},
+        T_DensityMapBoson <: Union{DensityMap, Nothing},
     }
     if T_DensityMap == Nothing
         @assert T_StructureFactor == T_Snaps == Nothing "StructureFactor and Snapshots have DensityMap as dependency"
@@ -26,7 +31,7 @@
         $(
             if T_GreenFuncBin ≠ Nothing
                 quote
-                    @assert Gf.Cw == update_consts.Cw
+                    @assert Gf.Cw == hyperpara.Cw
                 end
             end
         )
@@ -43,20 +48,40 @@
         T_simu::UInt64 = Nanosecond(time_simu).value
 
         t_limit::UInt64 = time_ns() + T_ther
+        
         N_cycle = total_cycle_size = 0
-        sweep_size = 100
+        sweep_size = 10
+
+        Cw = hyperpara.Cw
+        Eoff = hyperpara.Eoff
+        AP_table = AP_tabulate(hyperpara,worm_action)
+
         while time_ns() < t_limit
             total_cycle_size += worm_cycle!(x, H, 
-                update_consts, cycle_probs,
+                Cw, Eoff, AP_table,
                 sweep_size, nothing
             )
             N_cycle += sweep_size
         end
+
         average_size = total_cycle_size / N_cycle
         Nverts = sum(length, x.wl) - length(x.wl)
         sweep_size = ceil(Int, Nverts / average_size)
         sweep_size = clamp(sweep_size, sweep_size_limit...)
-        
+
+        if optimize_hyperpara
+            Eoff = (Nverts/length(x.wl) + 1)/(2x.β)
+            @assert Eoff > 0.
+            @info "reset Eoff to optimal : $(Eoff)"
+            Wkbar::Float64 = 1.0 + (H.J * sum(H.bosons) / length(H.bosons))
+            P_del2ins_opt = inv(Wkbar)
+            Pins_new = let P_move = AP_table[1], P_kink = AP_table[3]
+                (P_kink + P_move * P_del2ins_opt) / (1 + P_del2ins_opt)
+            end
+            @reset AP_table[2] = Pins_new
+            @info "reset cycle_probs to optimal : $(AP_table)"
+        end
+
         @assert all(issorted, x.wl)
         @info """Thermalization Statistics
             [total_cycle_size] = $(total_cycle_size)
@@ -66,13 +91,12 @@
             [N cycle per mes ] = $(sweep_size)
             Now simulating for $(time_simu)
             """
-
         t_limit = time_ns() + T_simu
         N_cycle = total_cycle_size = 0
-        T_measure = N_measure = 0
+        T_measure::Int = N_measure = 0
         while time_ns() < t_limit
             total_cycle_size += worm_cycle!(x, H,
-                update_consts, cycle_probs,
+                Cw, Eoff, AP_table,
                 sweep_size, Gf
             )
             N_cycle += sweep_size
@@ -102,6 +126,29 @@
                 if T_Snaps ≠ Nothing
                     quote
                         record!(snapshots, density_map.ψ)
+                    end
+                end
+            )
+            $(
+                if T_BosonHist ≠ Nothing
+                    quote
+                        for nb ∈ H.bosons
+                            r = nb + 1
+                            if length(bosonhist) < r
+                                l0 = length(bosonhist)
+                                resize!(bosonhist, r)
+                                bosonhist[(l0+1):r] .= 0
+                            end
+                            bosonhist[r] += 1
+                        end
+                    end
+                end
+            )
+            $(
+                if T_DensityMapBoson ≠ Nothing
+                    quote
+                        density_map_boson.ρ .+= H.bosons
+                        density_map_boson.n_measure += 1
                     end
                 end
             )
