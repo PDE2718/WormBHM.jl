@@ -51,15 +51,15 @@
         
         N_cycle = total_cycle_size = 0
         sweep_size = 10
-
+        
         Cw = hyperpara.Cw
         Eoff = hyperpara.Eoff
         AP_table = AP_tabulate(hyperpara,worm_action)
-
+        fB = BondSampler(x.β, H.μb, H.Ub, H.nBmax)
         while time_ns() < t_limit
             total_cycle_size += worm_cycle!(x, H, 
                 Cw, Eoff, AP_table,
-                sweep_size, nothing
+                sweep_size, nothing, fB
             )
             N_cycle += sweep_size
         end
@@ -97,7 +97,7 @@
         while time_ns() < t_limit
             total_cycle_size += worm_cycle!(x, H,
                 Cw, Eoff, AP_table,
-                sweep_size, Gf
+                sweep_size, Gf, fB
             )
             N_cycle += sweep_size
             tic = time_ns()

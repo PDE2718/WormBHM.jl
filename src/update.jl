@@ -5,8 +5,11 @@
         AP_table::NTuple{4, f64},
         n_cycle::Int,
         G::T_G,
-    )::Int where {Nw, Ham<:BH_Parameters,
+        fB::T_FB,
+    )::Int where {
+        Nw, Ham<:BH_Parameters,
         T_G<:Union{GreenFuncBin, Nothing},
+        T_FB<:Union{BondSampler, Nothing}
     }
     
     @assert Nw == N_wldim(Ham)
@@ -441,7 +444,7 @@
                 $(
                     if is_Bond_Boson
                         quote
-                            update_rand_boson!(H, x)
+                            update_rand_boson!(H, x, fB)
                             cycle_size += 1
                             @goto CYCLE_START🔁
                         end

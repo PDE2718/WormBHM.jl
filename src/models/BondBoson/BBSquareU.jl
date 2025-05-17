@@ -126,36 +126,3 @@ function simple_measure!(m,
     m.n_measure += 1
     return nothing
 end
-
-function BBDistBuffer(H::BBSquareU)
-    return BBDistU[]
-end
-
-# function update_bosons!(H::BBSquareU, x::Wsheet{3}, fB::Vector{BBDistU})
-#     B = H.bosons
-#     a = x.β * 0.5 * H.Ub
-#     b = -x.β * (0.5 * H.Ub + H.μb)
-#     for kb ∈ eachindex(B)
-#         i, j = bond_sites(H, kb)
-#         Nk = count(e -> e.j == j, x[i])
-#         np = rand_boson!(fB, Nk, a, b)
-#         if 0 ≤ np ≤ H.nBmax
-#             B[kb] = np
-#         end
-#     end
-#     return nothing
-# end
-
-# function update_rand_boson!(H::BBSquareU, x::Wsheet{3}, fB::Vector{BBDistU})
-#     B = H.bosons
-#     a = x.β * 0.5 * H.Ub
-#     b = -x.β * (0.5 * H.Ub + H.μb)
-#     kij = rand(eachindex(B))
-#     i, j = bond_sites(H, kij)
-#     Nk = count(e -> e.j == j, x[i])
-#     np = rand_boson!(fB, Nk, a, b)
-#     if 0 ≤ np ≤ H.nBmax
-#         B[kij] = np
-#     end
-#     return nothing
-# end

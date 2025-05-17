@@ -97,7 +97,3 @@ function simple_measure!(m,
     m.n_measure += 1
     return nothing
 end
-
-function BBDistBuffer(H::BBChainU)
-    return BBDistU[]
-end
