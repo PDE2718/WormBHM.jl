@@ -4,8 +4,8 @@
         Cw::f64, Eoff::f64,
         AP_table::NTuple{4, f64},
         n_cycle::Int,
-        G::T_G,
-        fB::T_FB,
+        G::T_G = nothing,
+        fB::T_FB = nothing,
     )::Int where {
         Nw, Ham<:BH_Parameters,
         T_G<:Union{GreenFuncBin, Nothing},
