@@ -11,6 +11,7 @@ begin
     include("measure/structure_factor.jl")
     include("measure/greens_function.jl")
     include("measure/snapshots.jl")
+    include("measure/LegRep.jl")
 end
 include("hamiltionian.jl")
 include("update.jl")
