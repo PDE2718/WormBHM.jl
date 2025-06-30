@@ -30,3 +30,12 @@ function merge(ms::Array{SimpleMeasure{Np}}) where {Np}
     end
     return m_merge
 end
+function merge(m1::SimpleMeasure{Np}, m2::SimpleMeasure{Np}) where {Np}
+    @assert m1.names == m2.names
+    names = m1.names
+    return SimpleMeasure{Np}(
+        (m1.props .+ m2.props),
+        m1.names,
+        m1.n_measure + m2.n_measure
+    )
+end
