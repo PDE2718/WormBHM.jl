@@ -17,6 +17,7 @@ include("hamiltionian.jl")
 include("update.jl")
 include("simulation/simulate.jl")
 include("simulation/simulate_bb.jl")
+include("simulation/simulate_bq.jl")
 include("extra_tools.jl")
 
 for n in names(@__MODULE__; all=true)

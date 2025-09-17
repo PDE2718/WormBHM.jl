@@ -18,6 +18,8 @@
     mes_green::Bool = ~(T_G == Nothing)
     is_KCM_Kagome::Bool = (Ham == HybridKagome)
     is_Bond_Boson::Bool = (:bosons ∈ fieldnames(Ham))
+    is_Bond_BosonQ::Bool = (:bosonwl ∈ fieldnames(Ham))
+
     # println("compiling update for $(Ham) (Ndim = $(Ndim), znbs = $(znbs)), zhps = $(zhps), GF = $(mes_green)")
     quote
         $(
@@ -31,7 +33,7 @@
         lattice = Base.OneTo(IndexType(lastindex(x.wl)))
         F_move, F_ins, F_del, F_glue = AP_table
         $(
-            if is_Bond_Boson
+            if is_Bond_Boson || is_Bond_BosonQ
                 quote
                     @assert F_glue < 1.0
                 end
@@ -321,7 +323,17 @@
                 if nmid > H.nmax || nmid < i8(0)
                     @goto CYCLE_START🔁
                 end
-                
+
+                $(
+                    if is_Bond_BosonQ
+                        quote
+                            if bond_state(H, i, j, head.t) == StateType(0)
+                                @goto CYCLE_START🔁
+                            end
+                        end
+                    end
+                )
+
                 # case with the kinetic constraint, check the third one
                 Wk = max(nj, nmid) * bond_weight(H, i, j)
                 $(
@@ -445,6 +457,17 @@
                     if is_Bond_Boson
                         quote
                             update_rand_boson!(H, x, fB)
+                            cycle_size += 1
+                            @goto CYCLE_START🔁
+                        end
+                    end
+                )
+                $(
+                    if is_Bond_BosonQ
+                        quote
+                            kb = rand(eachindex(H.bosonwl))
+                            # kb = rand(get_hps(H, i))
+                            update_boson!(H, x, kb)
                             cycle_size += 1
                             @goto CYCLE_START🔁
                         end

@@ -183,10 +183,18 @@ end
     return @inbounds l[i]
 end
 
+# function sizehint_wl!(l)
+#     L0 = length(l)
+#     if l.ref.mem.length > L0 + 8
+#         sizehint!(l, L0 + 4; shrink=true)
+#     # println("triggered")
+#     end
+#     return nothing
+# end
 function sizehint_wl!(l)
-    L0 = length(l)
-    if l.ref.mem.length > L0 + 8
-        sizehint!(l, L0 + 4; shrink=true)
+    tol = 2length(l)
+    if l.ref.mem.length > tol > 64
+        sizehint!(l, tol; shrink=true)
     end
     return nothing
 end

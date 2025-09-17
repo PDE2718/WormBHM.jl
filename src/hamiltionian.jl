@@ -53,6 +53,7 @@ function init_wsheet(β::T_β, H::T_H) where {T_β<:Real,T_H<:BH_Parameters}
     @assert β > T_β(0)
     return Wsheet(Float64(β), zeros(StateType, wl_size(H)))
 end
+
 include("models/BH_Square.jl")
 include("models/BH_Cubic.jl")
 include("models/Kagome.jl")
@@ -62,4 +63,8 @@ include("models/BondBoson/BButils.jl")
 include("models/BondBoson/BBChainU.jl")
 include("models/BondBoson/BBSquareU.jl")
 include("models/BondBoson/BBCubicU.jl")
+
+include("models/BondBosonQ/BBQutils.jl")
+include("models/BondBosonQ/BBSquareQ.jl")
+include("models/BondBosonQ/BBChainQ.jl")
 ##########################################################################################
