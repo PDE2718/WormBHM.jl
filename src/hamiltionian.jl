@@ -63,8 +63,11 @@ include("models/BondBoson/BButils.jl")
 include("models/BondBoson/BBChainU.jl")
 include("models/BondBoson/BBSquareU.jl")
 include("models/BondBoson/BBCubicU.jl")
+include("models/BondBoson/BBSquareP.jl")
+
 
 include("models/BondBosonQ/BBQutils.jl")
 include("models/BondBosonQ/BBSquareQ.jl")
 include("models/BondBosonQ/BBChainQ.jl")
+
 ##########################################################################################

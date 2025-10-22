@@ -1,0 +1,165 @@
+@kwdef struct BBSquareP <: BH_Parameters{true,3,4,4}
+    nmax::StateType = 1
+    Lx::IndexType = 0
+    Ly::IndexType = 0
+    J::f64 = 1.0
+    U::f64 = 0.0
+    V::f64 = 0.0
+    μ::f64 = 0.0
+    μb::f64 = 1.0
+    Ub::f64 = 1.0
+    nBmax::Int = 1
+    sites::Matrix{Bool} = zeros(Bool, (Lx, Ly))
+    bosons::Array{Int,3} = zeros(Int, (Lx, Ly, 2))
+end
+
+function wl_size(H::BBSquareP)::NTuple{3,Int}
+    return (Int(H.Lx), Int(H.Ly), 1)
+end
+
+function get_nbs(H::BBSquareP, i::Integer)::NTuple{4,Int}
+    @inbounds begin
+        Lx, Ly, _ = wl_size(H)
+        lid = LinearIndices((Lx, Ly))
+        x0, y0 = Tuple(CartesianIndices(lid)[i])
+        return (
+            lid[mod1(x0 - 1, Lx), y0],  # left
+            lid[mod1(x0 + 1, Lx), y0],  # right
+            lid[x0, mod1(y0 - 1, Ly)],  # bottom
+            lid[x0, mod1(y0 + 1, Ly)],  # top
+            # lid[x0, y0, mod1(z0 - 1, Lz)],  # back
+            # lid[x0, y0, mod1(z0 + 1, Lz)],  # front
+        )
+    end
+end
+
+function get_hps(H::BBSquareP, i::Integer)::NTuple{4,Int}
+    return get_nbs(H, i)
+end
+
+function diagE(H::BBSquareP, i, ni::StateType, njs::NTuple{4,StateType})::f64
+    return 0.5 * H.U * ni * (ni - 1) - H.μ * ni + H.V * ni * sum(njs)
+end
+
+function bond_weight(H::BBSquareP, i::Integer, j::Integer)::f64
+    Lx, Ly = wl_size(H)
+    hps = get_hps(H, i)
+    x0, y0 = CartesianIndices((Lx, Ly))[i] |> Tuple
+    return H.J * (
+        if j == hps[1]  # left
+            H.bosons[x0, y0, 1]
+        elseif j == hps[2]  # right
+            H.bosons[mod1(x0 + 1, Lx), y0, 1]
+        elseif j == hps[3]  # bottom
+            H.bosons[x0, y0, 2]
+        elseif j == hps[4]  # top
+            H.bosons[x0, mod1(y0 + 1, Ly), 2]
+        else
+            0
+        end
+    )
+end
+
+function bond_sites(H::BBSquareP, kb::Integer)::NTuple{2,Int}
+    Lx, Ly = wl_size(H)
+    x0, y0, sb = CartesianIndices((Lx, Ly, 2))[kb] |> Tuple
+    i = LinearIndices((Lx,Ly))[x0, y0]
+    return (i, get_hps(H, i)[2sb-1])
+end
+
+function _cluster!(sites, bonds, x, y)
+    @inbounds begin
+        if sites[x, y] == true
+            return 0
+        end
+        sites[x, y] = true
+        s = 1
+        Lx, Ly = size(sites)
+        if bonds[x, y, 1] > 0
+            s += _cluster!(sites, bonds, mod1(x - 1, Lx), y)
+        end
+        if bonds[mod1(x + 1, Lx), y, 1] > 0
+            s += _cluster!(sites, bonds, mod1(x + 1, Lx), y)
+        end
+        if bonds[x, y, 2] > 0
+            s += _cluster!(sites, bonds, x, mod1(y - 1, Ly))
+        end
+        if bonds[x, mod1(y + 1, Ly), 2] > 0
+            s += _cluster!(sites, bonds, x, mod1(y + 1, Ly))
+        end
+        return s
+    end
+end
+function _cluster_bfs_at!(sites, bonds, i)
+    return _cluster!(sites, bonds, Tuple(CartesianIndices(sites)[i])...)
+end
+function max_cluster(sites::Array{Bool,2}, bonds)
+    fill!(sites, false)
+    s_max = 0
+    @inbounds for r ∈ CartesianIndices(sites)
+        s = _cluster!(sites, bonds, r[1], r[2])
+        s_max = max(s_max, s)
+    end
+    return s_max
+end
+function simple_measure_names(::Type{BBSquareP})
+    return (:E, :E², :N, :N², :K, :U, :μ, :V, :Kx, :Ky, :Wx², :Wy², :Nb, :Nb², :Mmax)
+end
+
+function simple_measure!(m,
+    x::Wsheet{3},
+    H::BBSquareP
+)::Nothing
+    U = μ = V = N = 0.0
+    for (i, c) ∈ enumerate(CartesianIndices(x.wl))
+        li::Wline = x[i]
+        ni, ni² = integrated_density(Val(2), li)
+        μ -= H.μ * ni
+        U += 0.5 * H.U * (ni² - ni)
+        for nb ∈ get_nbs(H, i)
+            if nb < i
+                V += H.V * integrated_densities(li, x[nb])
+            end
+        end
+        N += li[end].n_L
+    end
+    @assert isapprox(μ, -H.μ * N)
+    Wx::Int = Wy::Int = 0
+    NKx::Int = NKy::Int = 0
+    for i ∈ eachindex(x)
+        for e::Element ∈ x[i]::Wline
+            if e.op == b_
+                hps = get_hps(H, i)
+                j = Int(e.j)
+                if j == hps[1]  # left
+                    Wx -= 1
+                    NKx += 1
+                elseif j == hps[2]  # right
+                    Wx += 1
+                    NKx += 1
+                elseif j == hps[3]  # bottom
+                    Wy -= 1
+                    NKy += 1
+                elseif j == hps[4]  # top
+                    Wy += 1
+                    NKy += 1
+                else
+                    error("illegal operator")
+                end
+            end
+        end
+    end
+    @assert Wx % H.Lx == Wy % H.Ly == 0
+    Wx = Wx ÷ H.Lx
+    Wy = Wy ÷ H.Ly
+    Kx = -NKx / x.β
+    Ky = -NKy / x.β
+    K = Kx + Ky
+    E = U + μ + V + K
+    Nb = sum(H.bosons)
+    Nb2 = sum(abs2, H.bosons)
+    Mmax = max_cluster(H.sites, H.bosons)
+    m.props = m.props .+ (E, abs2(E), N, abs2(N), K, U, μ, V, Kx, Ky, abs2(Wx), abs2(Wy), Nb, Nb2, Mmax)
+    m.n_measure += 1
+    return nothing
+end

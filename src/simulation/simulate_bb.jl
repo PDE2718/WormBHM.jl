@@ -15,6 +15,8 @@
     sweep_size_limit::Tuple{Int,Int}=(1, 1024),
     shuffle_snapshot::f64=0.0,
     worm_action::f64=0.8,
+    opt_update_boson::T_fB = Val{true}(),
+    boson_snapshots::T_BosonSnaps=nothing,
     ) where {Nw, Ham <: BH_Parameters,
         T_GreenFuncBin <: Union{GreenFuncBin,Nothing},
         T_SimpleMeasure <: Union{SimpleMeasure, Nothing},
@@ -23,6 +25,8 @@
         T_Snaps <: Union{FixedSizeRecorder, Nothing},
         T_BosonHist <: Union{Vector{Int}, Nothing},
         T_DensityMapBoson <: Union{DensityMap, Nothing},
+        T_fB <: Union{Val{true}, Val{false}},
+        T_BosonSnaps <: Union{FixedSizeRecorder,Nothing}
     }
     if T_DensityMap == Nothing
         @assert T_StructureFactor == T_Snaps == Nothing "StructureFactor and Snapshots have DensityMap as dependency"
@@ -55,7 +59,18 @@
         Cw = hyperpara.Cw
         Eoff = hyperpara.Eoff
         AP_table = AP_tabulate(hyperpara,worm_action)
-        fB = BondSampler(x.β, H.μb, H.Ub, H.nBmax)
+        $(
+            if T_fB == Val{true}
+                quote
+                    fB = BondSampler(x.β, H.μb, H.Ub, H.nBmax)
+                end
+            else
+                quote
+                    fB = nothing
+                end
+            end
+        )
+        
         while time_ns() < t_limit
             total_cycle_size += worm_cycle!(x, H, 
                 Cw, Eoff, AP_table,
@@ -126,6 +141,13 @@
                 if T_Snaps ≠ Nothing
                     quote
                         record!(snapshots, density_map.ψ)
+                    end
+                end
+            )
+            $(
+                if T_BosonSnaps ≠ Nothing
+                    quote
+                        record!(boson_snapshots, H.bosons)
                     end
                 end
             )

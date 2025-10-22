@@ -236,3 +236,12 @@ function size(X::Wsheet{N}) where {N}
     return size(X.wl)
 end
 
+function set_empty_wl!(X, conf)
+    for (l,n0) ∈ zip(X.wl, conf)
+        @assert length(l) == 1
+        e = l[1]
+        @assert e.op == I_ && e.j == IndexType(0)
+        l[1] = Element(e.t, e.i, e.j, n0, n0, e.op)
+    end
+    return nothing
+end

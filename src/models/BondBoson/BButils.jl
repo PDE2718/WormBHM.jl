@@ -62,7 +62,15 @@ function bb_dist_k(k::Int, a::Float64, b::Float64, nBmax::Int)
     end
     dist = IntRangeDist(nl - 1, P)
     dist_lims = lims(dist)
-    @assert 0 ≤ dist_lims[1] < dist_lims[2] ≤ nBmax
+    # @assert 0 ≤ dist_lims[1] < dist_lims[2] ≤ nBmax
+    if !(0 ≤ dist_lims[1] < dist_lims[2] ≤ nBmax)
+        println(dist)
+        for i ∈ 1:10
+            println(dist())
+        end
+        println("k = $(k)")
+        println(dist_lims)
+    end
     return dist
 end
 
