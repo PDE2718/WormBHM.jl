@@ -39,6 +39,16 @@ function StructureFactorND(x::Wsheet{Nw}) where {Nw}
     L, Nsub = peel_last(size(x))
     return StructureFactorND(L, Val(Nsub))
 end
+function StructureFactorND(x::Array{T, Nw}) where {T, Nw}
+    L, Nsub = peel_last(size(x))
+    return StructureFactorND(L, Val(Nsub))
+end
+function copy_states!(S::StructureFactorND, x::Array{T, Nw}) where {T, Nw}
+    for (ψi, xi) ∈ zip(S.ψs, eachslice(x, dims = Nw))
+        ψi .= xi
+    end
+    return nothing
+end
 
 function cal_Sk!(S::StructureFactorND{Ndim,Nsub,NSk}, P::FFTW.rFFTWPlan) where {Ndim, Nsub, NSk}
     for (ψk, ψ) ∈ zip(S.ψk, S.ψs)
