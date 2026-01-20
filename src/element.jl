@@ -133,7 +133,7 @@ function vindex(l::Wline, t::f64)::Int
 end
 
 function slice_at(l::Wline, t::f64)::StateType
-    return l[searchsortedfirst(l, t)].n_L
+    return l[vindex(l, t)].n_L
 end
 
 function close_to_any(l::Wline, t::f64)::Bool
