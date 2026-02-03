@@ -28,7 +28,7 @@ function snapshot!(r::DensityMap{Nw}, x::Wsheet{Nw}, t_scaled::f64) where {Nw}
     r.n_measure += 1
     return nothing
 end
-function snapshot!(::Nothing, ...)
+function snapshot!(::Nothing, args...)
     return nothing
 end
 import Base.merge

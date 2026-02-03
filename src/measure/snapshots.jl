@@ -20,7 +20,7 @@ function record!(x::FixedSizeRecorder{T}, v::T) where {T}
     end
     nothing
 end
-record!(snapshots, density_map.ψ)
+record!(::Nothing, args...) = nothing
 
 function SnapShots(x::Wsheet{Nw}, L::Integer) where {Nw}
     return FixedSizeRecorder(Array{StateType, Nw}, L)
