@@ -20,6 +20,8 @@ function record!(x::FixedSizeRecorder{T}, v::T) where {T}
     end
     nothing
 end
+record!(snapshots, density_map.ψ)
+
 function SnapShots(x::Wsheet{Nw}, L::Integer) where {Nw}
     return FixedSizeRecorder(Array{StateType, Nw}, L)
 end
@@ -49,16 +51,3 @@ function <<(r::CoarseGrainedRecorder{T}, val::T) where {T<:Union{AbstractFloat,C
     end
     return r
 end
-
-# function test_fszr()
-#     aa = FixedSizeRecorder(Float64, rand(2:2:140))
-#     seq = rand(rand(1:1000))
-#     for v ∈ seq
-#         record!(aa,v)
-#     end
-#     all(aa.snaps .== seq[aa.Δ:aa.Δ:end])
-# end
-# for i ∈ 1:1000
-#     @assert test_fszr()
-# end
-# 1

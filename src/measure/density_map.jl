@@ -28,6 +28,9 @@ function snapshot!(r::DensityMap{Nw}, x::Wsheet{Nw}, t_scaled::f64) where {Nw}
     r.n_measure += 1
     return nothing
 end
+function snapshot!(::Nothing, ...)
+    return nothing
+end
 import Base.merge
 function merge(ms::Array{DensityMap{Nw}}) where {Nw}
     ψ = similar(ms[1].ψ)

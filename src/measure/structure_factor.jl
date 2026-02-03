@@ -81,6 +81,8 @@ end
         return nothing
     end
 end
+measure_Sk!(::Nothing, args...) = nothing
+
 function Cab(S::StructureFactorND{Ndim,Nsub,NSk}, a::Integer, b::Integer) where {Ndim,Nsub,NSk}
     P = rfftplan(S)
     N = length(S.ψs |> first)

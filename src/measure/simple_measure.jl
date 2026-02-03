@@ -39,3 +39,6 @@ function merge(m1::SimpleMeasure{Np}, m2::SimpleMeasure{Np}) where {Np}
         m1.n_measure + m2.n_measure
     )
 end
+function simple_measure!(::Nothing, args...)::Nothing
+    return nothing
+end
