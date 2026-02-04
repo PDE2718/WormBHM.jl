@@ -23,17 +23,22 @@ function empty!(S::StructureFactorND)
 end
 rfftplan(S::StructureFactorND) = plan_rfft(S.ψs |> first)
 
-function StructureFactorND(L::NTuple{Ndim, Integer}, ::Val{Nsub}) where {Ndim, Nsub}
+@generated function StructureFactorND(L::NTuple{Ndim, Integer}, ::Val{Nsub}) where {Ndim, Nsub}
     NSk = Nsub * (Nsub + 1) ÷ 2
-    S = StructureFactorND{Ndim, Nsub, NSk}(
-        ntuple(i->Array{Float64,Ndim}(undef, L), Nsub),
-        ntuple(i->rfft_buffer(L), Nsub),
-        ntuple(i->rfft_buffer(L), NSk),
-        rfft_buffer(L),
-        0
-    )
-    empty!(S)
-    return S
+    quote
+        S = StructureFactorND{$(Ndim),$(Nsub),$(NSk)}(
+            @ntuple $(Nsub) i -> Array{Float64,$(Ndim)}(undef, L),
+            @ntuple $(Nsub) i -> rfft_buffer(L),
+            @ntuple $(NSk) i -> rfft_buffer(L),
+            # ntuple(i -> Array{Float64,$(Ndim)}(undef, L), Nsub),
+            # ntuple(i -> rfft_buffer(L), Nsub),
+            # ntuple(i -> rfft_buffer(L), NSk),
+            rfft_buffer(L),
+            0
+        )
+        empty!(S)
+        return S
+    end
 end
 function StructureFactorND(x::Wsheet{Nw}) where {Nw}
     L, Nsub = peel_last(size(x))
