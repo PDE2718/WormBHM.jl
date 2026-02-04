@@ -27,9 +27,9 @@ rfftplan(S::StructureFactorND) = plan_rfft(S.ψs |> first)
     NSk = Nsub * (Nsub + 1) ÷ 2
     quote
         S = StructureFactorND{$(Ndim),$(Nsub),$(NSk)}(
-            @ntuple $(Nsub) i -> Array{Float64,$(Ndim)}(undef, L),
-            @ntuple $(Nsub) i -> rfft_buffer(L),
-            @ntuple $(NSk) i -> rfft_buffer(L),
+            (@ntuple $(Nsub) i -> Array{Float64,$(Ndim)}(undef, L)),
+            (@ntuple $(Nsub) i -> rfft_buffer(L)),
+            (@ntuple $(NSk) i -> rfft_buffer(L)),
             # ntuple(i -> Array{Float64,$(Ndim)}(undef, L), Nsub),
             # ntuple(i -> rfft_buffer(L), Nsub),
             # ntuple(i -> rfft_buffer(L), NSk),
@@ -42,12 +42,23 @@ rfftplan(S::StructureFactorND) = plan_rfft(S.ψs |> first)
 end
 function StructureFactorND(x::Wsheet{Nw}) where {Nw}
     L, Nsub = peel_last(size(x))
-    return StructureFactorND(L, Val(Nsub))
+    return StructureFactorND(L, Val{Nsub}())
+end
+function StructureFactorND(x::Wsheet{Nw}, ::Val{Nsub}) where {Nw, Nsub}
+    L, _Nsub = peel_last(size(x))
+    @assert _NSub == Nsub
+    return StructureFactorND(L, Val{Nsub}())
 end
 function StructureFactorND(x::Array{T, Nw}) where {T, Nw}
     L, Nsub = peel_last(size(x))
-    return StructureFactorND(L, Val(Nsub))
+    return StructureFactorND(L, Val{Nsub}())
 end
+function StructureFactorND(x::Array{T, Nw}, ::Val{Nsub}) where {T, Nw, Nsub}
+    L, _Nsub = peel_last(size(x))
+    @assert _Nsub == Nsub
+    return StructureFactorND(L, Val{Nsub}())
+end
+
 function copy_states!(S::StructureFactorND, x::Array{T, Nw}) where {T, Nw}
     for (ψi, xi) ∈ zip(S.ψs, eachslice(x, dims = Nw))
         ψi .= xi
