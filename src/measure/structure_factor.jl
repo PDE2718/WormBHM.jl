@@ -46,7 +46,7 @@ function StructureFactorND(x::Wsheet{Nw}) where {Nw}
 end
 function StructureFactorND(x::Wsheet{Nw}, ::Val{Nsub}) where {Nw, Nsub}
     L, _Nsub = peel_last(size(x))
-    @assert _NSub == Nsub
+    @assert _Nsub == Nsub
     return StructureFactorND(L, Val{Nsub}())
 end
 function StructureFactorND(x::Array{T, Nw}) where {T, Nw}
